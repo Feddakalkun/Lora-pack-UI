@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -260,19 +260,20 @@ def extract_video_frames(req: FrameExtractionRequest):
 
 
 @app.get("/api/images/{character}")
-def list_character_images(character: str):
+def list_character_images(character: str, request: Request):
     base_path = DOWNLOADS_ROOT / character
     if not base_path.exists():
         return {"images": []}
 
     image_files = []
+    media_base = str(request.base_url).rstrip("/")
     for ext in ["*.jpg", "*.jpeg", "*.png", "*.webp"]:
         for file in glob.glob(os.path.join(str(base_path), "**", ext), recursive=True):
             rel_path = os.path.relpath(file, str(base_path)).replace(os.sep, "/")
             image_files.append(
                 {
                     "name": os.path.basename(file),
-                    "url": f"http://localhost:8000/media/{quote(character)}/{quote(rel_path)}",
+                    "url": f"{media_base}/media/{quote(character)}/{quote(rel_path)}",
                     "size": os.path.getsize(file),
                     "folder": os.path.dirname(rel_path) or "root",
                 }
@@ -282,12 +283,13 @@ def list_character_images(character: str):
 
 
 @app.get("/api/videos/{character}")
-def list_character_videos(character: str):
+def list_character_videos(character: str, request: Request):
     base_path = DOWNLOADS_ROOT / character
     if not base_path.exists():
         return {"videos": []}
 
     videos = []
+    media_base = str(request.base_url).rstrip("/")
     patterns = ["*.mp4", "*.mov", "*.mkv", "*.webm"]
     for pattern in patterns:
         for file in base_path.rglob(pattern):
@@ -300,7 +302,7 @@ def list_character_videos(character: str):
                     "path": str(file.resolve()),
                     "folder": str(file.parent.relative_to(base_path)).replace("\\", "/") or "root",
                     "size": file.stat().st_size,
-                    "url": f"http://localhost:8000/media/{quote(character)}/{quote(rel)}",
+                    "url": f"{media_base}/media/{quote(character)}/{quote(rel)}",
                 }
             )
 
@@ -315,4 +317,9 @@ app.mount("/media", StaticFiles(directory=str(DOWNLOADS_ROOT)), name="media")
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
+    host = os.environ.get("BACKEND_HOST", "127.0.0.1")
+    try:
+        port = int(os.environ.get("BACKEND_PORT", "8000"))
+    except ValueError:
+        port = 8000
+    uvicorn.run("main:app", host=host, port=port, reload=True)

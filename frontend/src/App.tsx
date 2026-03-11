@@ -9,6 +9,8 @@ type CookieConfig = {
   instagram: string
 }
 
+const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim() || 'http://127.0.0.1:8000'
+
 function App() {
   const [activeTab, setActiveTab] = useState('characters')
   const [url, setUrl] = useState('')
@@ -49,7 +51,7 @@ function App() {
 
     const timer = window.setInterval(async () => {
       try {
-        const response = await axios.get(`http://localhost:8000/api/download/status/${downloadJobId}`)
+        const response = await axios.get(`${API_BASE}/api/download/status/${downloadJobId}`)
         const ok = String(response.data?.status || '').toLowerCase() === 'success'
         if (!ok) {
           setIsDownloading(false)
@@ -98,7 +100,7 @@ function App() {
 
   const loadCookieConfig = async () => {
     try {
-      const response = await axios.get('http://localhost:8000/api/cookies/config')
+      const response = await axios.get(`${API_BASE}/api/cookies/config`)
       const cfg = response.data?.config || { vsco: '', tiktok: '', instagram: '' }
       setCookieConfig({
         vsco: cfg.vsco || '',
@@ -116,7 +118,7 @@ function App() {
   const saveCookieConfig = async () => {
     setCookieStatus('Saving cookie configuration...')
     try {
-      const response = await axios.post('http://localhost:8000/api/cookies/config', cookieConfig)
+      const response = await axios.post(`${API_BASE}/api/cookies/config`, cookieConfig)
       const ok = String(response.data?.status || '').toLowerCase() === 'success'
       setCookieStatus(`${ok ? 'Success' : 'Error'}: ${response.data?.message || 'Unknown response'}`)
       if (cookieConfig.vsco) {
@@ -136,7 +138,7 @@ function App() {
     setDownloadLogs([])
 
     try {
-      const response = await axios.post('http://localhost:8000/api/download/start', {
+      const response = await axios.post(`${API_BASE}/api/download/start`, {
         url: url,
         platform: 'auto',
         character: selectedCharacter || 'Unsorted',
@@ -168,7 +170,7 @@ function App() {
   const loadCharacterVideos = async () => {
     if (!selectedCharacter) return
     try {
-      const response = await axios.get(`http://localhost:8000/api/videos/${selectedCharacter}`)
+      const response = await axios.get(`${API_BASE}/api/videos/${selectedCharacter}`)
       setAvailableVideos(response.data.videos || [])
       if ((response.data.videos || []).length === 0) {
         setFrameStatus('No videos found yet for this character. Download TikTok first.')
@@ -192,7 +194,7 @@ function App() {
 
     setFrameStatus('Extracting frames...')
     try {
-      const response = await axios.post('http://localhost:8000/api/video/extract-frames', {
+      const response = await axios.post(`${API_BASE}/api/video/extract-frames`, {
         video_path: videoPath.trim(),
         character: selectedCharacter,
         interval: Number(videoInterval) || 1,
@@ -208,7 +210,7 @@ function App() {
   const openVscoLoginBrowser = async () => {
     setVscoSessionStatus('Opening VSCO login browser...')
     try {
-      const response = await axios.post('http://localhost:8000/api/vsco/session/open-login')
+      const response = await axios.post(`${API_BASE}/api/vsco/session/open-login`)
       const ok = String(response.data?.status || '').toLowerCase() === 'success'
       setVscoSessionStatus(`${ok ? 'Success' : 'Error'}: ${response.data?.message || 'Unknown response'}`)
     } catch (error) {
@@ -219,7 +221,7 @@ function App() {
 
   const checkVscoSessionStatus = async () => {
     try {
-      const response = await axios.get('http://localhost:8000/api/vsco/session/status')
+      const response = await axios.get(`${API_BASE}/api/vsco/session/status`)
       const ok = String(response.data?.status || '').toLowerCase() === 'success'
       const details = response.data?.message || 'Unknown response'
       setVscoSessionStatus(`${ok ? 'Success' : 'Error'}: ${details}`)

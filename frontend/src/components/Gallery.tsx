@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Maximize2, Check, X, Scissors, Trash2 } from 'lucide-react'
 import axios from 'axios'
 
+const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim() || 'http://127.0.0.1:8000'
+
 interface ImageItem {
     name: string
     url: string
@@ -23,7 +25,7 @@ export function Gallery({ character }: GalleryProps) {
     const fetchImages = async () => {
         setLoading(true)
         try {
-            const response = await axios.get(`http://localhost:8000/api/images/${character}`)
+            const response = await axios.get(`${API_BASE}/api/images/${character}`)
             setImages(response.data.images)
         } catch (error) {
             console.error('Error fetching images:', error)
