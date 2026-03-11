@@ -155,30 +155,11 @@ function App() {
       setStatus('Queued download...')
     } catch (error) {
       console.error(error)
-
-      // Backward compatibility: if backend is an older version without /api/download/start
       if (axios.isAxiosError(error) && error.response?.status === 404) {
-        try {
-          setStatus('Using compatibility mode...')
-          const response = await axios.post('http://localhost:8000/api/download', {
-            url: url,
-            platform: 'auto',
-            character: selectedCharacter || 'Unsorted',
-            vsco_cookies_file: isVscoUrl && vscoCookiesFile.trim() ? vscoCookiesFile.trim() : null,
-            tiktok_cookies_file: isTiktokUrl && cookieConfig.tiktok.trim() ? cookieConfig.tiktok.trim() : null,
-          })
-
-          const ok = String(response.data?.status || '').toLowerCase() === 'success'
-          setDownloadProgress(100)
-          setDownloadLogs((prev) => [...prev, `[compat] ${response.data?.message || 'Done'}`])
-          setStatus(`${ok ? 'Success' : 'Error'}: ${response.data?.message || 'Unknown response'}`)
-          setIsDownloading(false)
-          return
-        } catch (compatError) {
-          console.error(compatError)
-        }
+        setIsDownloading(false)
+        setStatus('Error: Connected to an older/wrong backend on :8000. Close other backend windows and run run.cmd in this folder.')
+        return
       }
-
       setIsDownloading(false)
       setStatus('Error connecting to backend.')
     }
