@@ -5,7 +5,7 @@ LoRA Pack UI is a local-first tool for collecting and preparing media for model 
 ## Quick Start (Windows)
 
 1. Clone this repository.
-2. Run `update.bat` once (creates/updates `.venv`, installs backend + frontend dependencies).
+2. Run `install.bat` once (creates `.venv`, installs backend + frontend dependencies, installs Playwright Chromium).
 3. Run `run_dev.cmd`.
 4. Open [http://localhost:5173](http://localhost:5173).
 
@@ -21,6 +21,7 @@ This will:
 2. Ensure Python virtual environment exists.
 3. Install backend requirements.
 4. Install frontend dependencies.
+5. Install/update Playwright Chromium.
 
 ## Notes
 
