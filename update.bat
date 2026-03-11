@@ -17,7 +17,7 @@ if errorlevel 1 (
   exit /b 1
 )
 
-echo [1/4] Pulling latest code...
+echo [1/5] Pulling latest code...
 cd /d "%ROOT%"
 git pull --rebase --autostash
 if errorlevel 1 (
@@ -26,7 +26,7 @@ if errorlevel 1 (
   exit /b 1
 )
 
-echo [2/4] Ensuring Python virtual environment...
+echo [2/5] Ensuring Python virtual environment...
 if not exist "%PY%" (
   echo Creating .venv...
   python -m venv "%ROOT%.venv"
@@ -37,7 +37,7 @@ if not exist "%PY%" (
   )
 )
 
-echo [3/4] Installing backend dependencies...
+echo [3/5] Installing backend dependencies...
 cd /d "%ROOT%backend"
 "%PY%" -m pip install -r requirements.txt
 if errorlevel 1 (
@@ -46,13 +46,20 @@ if errorlevel 1 (
   exit /b 1
 )
 
-echo [4/4] Installing frontend dependencies...
+echo [4/5] Installing frontend dependencies...
 cd /d "%ROOT%frontend"
 cmd /c npm install
 if errorlevel 1 (
   echo [ERROR] Failed to install frontend dependencies.
   pause
   exit /b 1
+)
+
+echo [5/5] Installing Playwright Chromium...
+cd /d "%ROOT%"
+"%PY%" -m playwright install chromium
+if errorlevel 1 (
+  echo [WARN] Playwright Chromium install failed. VSCO login browser may not work until this succeeds.
 )
 
 echo.

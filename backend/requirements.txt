@@ -3,3 +3,9 @@ uvicorn==0.27.1
 pydantic==2.6.2
 python-multipart==0.0.9
 requests
+
+# Downloaders and cookie/session helpers
+gallery-dl
+yt-dlp
+browser-cookie3
+playwright
