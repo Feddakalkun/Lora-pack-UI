@@ -23,6 +23,7 @@ export function Gallery({ character }: GalleryProps) {
     const [viewFolder, setViewFolder] = useState('root')
 
     const fetchImages = async () => {
+        if (!character) return
         setLoading(true)
         try {
             const response = await axios.get(`${API_BASE}/api/images/${character}`)
@@ -37,6 +38,29 @@ export function Gallery({ character }: GalleryProps) {
     useEffect(() => {
         fetchImages()
     }, [character])
+
+    const handleMoveBatch = async (files: string[], toFolder: string) => {
+        if (!files.length) return
+        try {
+            const res = await axios.post(`${API_BASE}/api/move`, {
+                character,
+                from_folder: viewFolder === 'root' ? 'source' : viewFolder,
+                to_folder: toFolder,
+                files
+            })
+            if (res.data.status === 'success') {
+                // Remove moved files from local state
+                const movedSet = new Set(res.data.moved)
+                setImages(prev => prev.filter(img => !movedSet.has(img.name)))
+                if (selectedImage && movedSet.has(selectedImage.name)) {
+                    setSelectedImage(null)
+                }
+            }
+        } catch (e) {
+            console.error('Move failed:', e)
+            alert('Failed to move files.')
+        }
+    }
 
     const filteredImages = images.filter(img =>
         viewFolder === 'root' ? true : img.folder === viewFolder
@@ -72,10 +96,18 @@ export function Gallery({ character }: GalleryProps) {
                     </div>
                 </div>
                 <div className="gallery-actions">
-                    <button className="icon-btn action-keep" title="Move all to Keep">
+                    <button
+                        className="icon-btn action-keep"
+                        title="Move filtered to Keep"
+                        onClick={() => handleMoveBatch(filteredImages.map(i => i.name), 'keep')}
+                    >
                         <Check size={18} />
                     </button>
-                    <button className="icon-btn action-remove" title="Move all to Trash">
+                    <button
+                        className="icon-btn action-remove"
+                        title="Move filtered to Remove"
+                        onClick={() => handleMoveBatch(filteredImages.map(i => i.name), 'remove')}
+                    >
                         <Trash2 size={18} />
                     </button>
                 </div>
@@ -109,14 +141,22 @@ export function Gallery({ character }: GalleryProps) {
 
                             {/* Quick Triage Actions */}
                             <div className="quick-actions">
-                                <button className="action-btn keep" title="Keep">
+                                <button
+                                    className="action-btn keep"
+                                    title="Keep"
+                                    onClick={() => handleMoveBatch([img.name], 'keep')}
+                                >
                                     <Check size={16} />
                                     <span>Keep</span>
                                 </button>
                                 <button className="action-btn crop" title="Send to Auto-Crop">
                                     <Scissors size={16} />
                                 </button>
-                                <button className="action-btn trash" title="Remove">
+                                <button
+                                    className="action-btn trash"
+                                    title="Remove"
+                                    onClick={() => handleMoveBatch([img.name], 'remove')}
+                                >
                                     <X size={16} />
                                 </button>
                             </div>
@@ -146,9 +186,19 @@ export function Gallery({ character }: GalleryProps) {
                             <div className="lightbox-toolbar glass-panel">
                                 <span className="lightbox-title">{selectedImage.name}</span>
                                 <div className="lightbox-actions">
-                                    <button className="action-btn keep"><Check size={20} /> Keep</button>
+                                    <button
+                                        className="action-btn keep"
+                                        onClick={() => handleMoveBatch([selectedImage.name], 'keep')}
+                                    >
+                                        <Check size={20} /> Keep
+                                    </button>
                                     <button className="action-btn crop"><Scissors size={20} /> Auto-Crop</button>
-                                    <button className="action-btn trash"><Trash2 size={20} /> Remove</button>
+                                    <button
+                                        className="action-btn trash"
+                                        onClick={() => handleMoveBatch([selectedImage.name], 'remove')}
+                                    >
+                                        <Trash2 size={20} /> Remove
+                                    </button>
                                 </div>
                                 <button className="icon-btn close-btn" onClick={() => setSelectedImage(null)}>
                                     <X size={24} />

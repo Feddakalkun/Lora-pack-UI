@@ -66,7 +66,15 @@ if errorlevel 1 (
   echo [WARN] Playwright Chromium install failed. VSCO login browser may not work until this succeeds.
 )
 
+echo [6/6] Cleaning up legacy scripts...
+if exist "dev.bat" del /q dev.bat
+if exist "run.cmd" del /q run.cmd
+if exist "run_dev.cmd" del /q run_dev.cmd
+if exist "push.bat" del /q push.bat
+if exist "start_studio.py" del /q start_studio.py
+if exist "package.json" del /q package.json
+
 echo.
 echo Install complete.
-echo Next step: run run.cmd
+echo Next step: run run.bat
 pause

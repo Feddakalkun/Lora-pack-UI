@@ -7,6 +7,8 @@ from typing import Dict, Any, List
 from urllib.parse import quote
 import glob
 import os
+import shutil
+import time
 import subprocess
 import sys
 
@@ -55,6 +57,12 @@ class CookieConfigRequest(BaseModel):
 class CharacterRequest(BaseModel):
     name: str
 
+class MoveRequest(BaseModel):
+    character: str
+    from_folder: str
+    to_folder: str
+    files: List[str]
+
 class FrameExtractionRequest(BaseModel):
     video_path: str
     character: str
@@ -90,10 +98,54 @@ def create_character(req: CharacterRequest):
     char_path.mkdir(parents=True, exist_ok=True)
     
     # Pre-initialize pipeline folders
-    for folder in ["source", "keep", "remove", "frames"]:
+    for folder in ["source", "keep", "remove", "frames", "inpaint"]:
         (char_path / folder).mkdir(exist_ok=True)
         
     return {"status": "success", "message": f"Character '{safe_name}' initialized.", "name": safe_name}
+
+# --- File/Media Curation ---
+
+@app.post("/api/move")
+def move_files(req: MoveRequest):
+    char_path = DOWNLOADS_ROOT / req.character
+    if not char_path.exists():
+        return {"status": "error", "message": "Character not found."}
+
+    from_dir = char_path / req.from_folder
+    to_dir = char_path / req.to_folder
+    to_dir.mkdir(parents=True, exist_ok=True)
+
+    moved = []
+    errors = []
+
+    for filename in req.files:
+        src = from_dir / filename
+        dst = to_dir / filename
+        
+        # Avoid overwriting or errors if identical
+        if src == dst:
+            continue
+            
+        try:
+            if src.exists():
+                # If destination exists, add a timestamp or index to avoid collision
+                if dst.exists():
+                    name, ext = os.path.splitext(filename)
+                    dst = to_dir / f"{name}_{int(time.time())}{ext}"
+                
+                shutil.move(str(src), str(dst))
+                moved.append(filename)
+            else:
+                errors.append(f"File not found: {filename}")
+        except Exception as e:
+            errors.append(f"Failed to move {filename}: {str(e)}")
+
+    return {
+        "status": "success",
+        "moved_count": len(moved),
+        "errors": errors,
+        "moved": moved
+    }
 
 # --- Download Management ---
 
