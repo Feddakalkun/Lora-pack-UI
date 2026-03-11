@@ -52,6 +52,9 @@ class CookieConfigRequest(BaseModel):
     tiktok: str = ""
     instagram: str = ""
 
+class CharacterRequest(BaseModel):
+    name: str
+
 class FrameExtractionRequest(BaseModel):
     video_path: str
     character: str
@@ -64,6 +67,33 @@ class FrameExtractionRequest(BaseModel):
 @app.get("/")
 def index():
     return {"status": "ok", "message": "LoRA Pack Backend is purring."}
+
+# --- Character Management ---
+
+@app.get("/api/characters")
+def list_characters():
+    if not DOWNLOADS_ROOT.exists():
+        return {"characters": []}
+    
+    # List directories in downloads folder, excluding hidden ones
+    chars = [d.name for d in DOWNLOADS_ROOT.iterdir() if d.is_dir() and not d.name.startswith(".")]
+    return {"characters": sorted(chars)}
+
+@app.post("/api/characters")
+def create_character(req: CharacterRequest):
+    # Sanitize name slightly
+    safe_name = "".join(c for c in req.name if c.isalnum() or c in (" ", "-", "_")).strip()
+    if not safe_name:
+        return {"status": "error", "message": "Invalid character name."}
+    
+    char_path = DOWNLOADS_ROOT / safe_name
+    char_path.mkdir(parents=True, exist_ok=True)
+    
+    # Pre-initialize pipeline folders
+    for folder in ["source", "keep", "remove", "frames"]:
+        (char_path / folder).mkdir(exist_ok=True)
+        
+    return {"status": "success", "message": f"Character '{safe_name}' initialized.", "name": safe_name}
 
 # --- Download Management ---
 

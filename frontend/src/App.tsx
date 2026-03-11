@@ -43,6 +43,11 @@ function App() {
       setShowSafetyModal(true)
     }
     loadCookieConfig()
+    fetchCharacters()
+
+    // Load last selected character
+    const lastChar = localStorage.getItem('lora_pack_selected_char')
+    if (lastChar) setSelectedCharacter(lastChar)
   }, [])
 
   // Job Polling Logic
@@ -72,6 +77,39 @@ function App() {
     }, 1500)
     return () => clearInterval(timer)
   }, [jobId])
+
+  const fetchCharacters = async () => {
+    try {
+      const res = await axios.get(`${API_BASE}/api/characters`)
+      setCharacters(res.data.characters || [])
+    } catch (e) {
+      console.error('Failed to fetch characters:', e)
+    }
+  }
+
+  const handleSelectCharacter = (name: string) => {
+    setSelectedCharacter(name)
+    localStorage.setItem('lora_pack_selected_char', name)
+  }
+
+  const handleAddCharacter = async () => {
+    const name = prompt('New Character Name:')
+    if (!name) return
+
+    try {
+      const res = await axios.post(`${API_BASE}/api/characters`, { name })
+      if (res.data.status === 'success') {
+        const charName = res.data.name
+        await fetchCharacters()
+        handleSelectCharacter(charName)
+      } else {
+        alert(res.data.message)
+      }
+    } catch (e) {
+      console.error('Failed to create character:', e)
+      alert('Error creating character folder.')
+    }
+  }
 
   const loadCookieConfig = async () => {
     try {
@@ -187,13 +225,7 @@ function App() {
                   <h2>Character Database</h2>
                   <p className="subtitle">Choose your subject to initialize the dataset workspace.</p>
                 </div>
-                <button className="btn btn-primary" onClick={() => {
-                  const name = prompt('New Character Name:')
-                  if (name) {
-                    setCharacters([...characters, name])
-                    setSelectedCharacter(name)
-                  }
-                }}>
+                <button className="btn btn-primary" onClick={handleAddCharacter}>
                   <Plus size={20} /> New Character
                 </button>
               </div>
@@ -203,7 +235,7 @@ function App() {
                   <div
                     key={char}
                     className={`glass-panel stat-card char-card ${selectedCharacter === char ? 'selected' : ''}`}
-                    onClick={() => setSelectedCharacter(char)}
+                    onClick={() => handleSelectCharacter(char)}
                   >
                     <Users size={32} className="accent-icon" />
                     <span className="char-name">{char}</span>
