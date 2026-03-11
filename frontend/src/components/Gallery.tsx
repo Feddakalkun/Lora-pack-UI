@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Maximize2, Check, X, Scissors, Trash2 } from 'lucide-react'
 import axios from 'axios'
 
-const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim() || 'http://127.0.0.1:8000'
+const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim() || 'http://localhost:8000'
 
 interface ImageItem {
     name: string

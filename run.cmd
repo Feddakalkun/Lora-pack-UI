@@ -30,5 +30,5 @@ start "Backend" cmd /k "cd /d %ROOT%backend && set BACKEND_PORT=%BACKEND_PORT% &
 
 echo Starting Vite React Frontend...
 cd /d "%ROOT%frontend"
-set "VITE_API_BASE_URL=http://127.0.0.1:%BACKEND_PORT%"
+set "VITE_API_BASE_URL=http://localhost:%BACKEND_PORT%"
 cmd /c npm run dev -- --port %FRONTEND_PORT%

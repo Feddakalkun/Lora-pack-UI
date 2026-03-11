@@ -553,6 +553,7 @@ h6 {
 .close-btn:hover {
   color: #ef4444;
 }
+
 .safety-modal-backdrop {
   position: fixed;
   inset: 0;
@@ -627,4 +628,119 @@ h6 {
   line-height: 1.4;
   color: #c7d2fe;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+/* --- Modular Component Utilities --- */
+.content-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.sidebar-section-label {
+  padding: 0 16px;
+  margin-bottom: 8px;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 700;
+  opacity: 0.6;
+}
+
+/* Character Selection */
+.char-card {
+  padding: 24px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  border-color: var(--glass-border);
+}
+
+.char-card:hover {
+  background: rgba(255, 255, 255, 0.05);
+  transform: translateY(-4px);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.char-card.selected {
+  border-color: var(--accent-color);
+  background: rgba(99, 102, 241, 0.08);
+  box-shadow: 0 0 20px var(--accent-glow);
+}
+
+.char-name {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+/* Video Processing Engine */
+.video-item-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid var(--glass-border);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.video-item-card:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.video-item-card.active {
+  background: rgba(99, 102, 241, 0.1);
+  border-color: var(--accent-color);
+}
+
+.video-preview-stub {
+  width: 48px;
+  height: 48px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent-color);
+}
+
+.video-meta {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.video-meta .name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.video-meta .folder {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+/* Status Messages */
+.status-msg {
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.placeholder-view {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 100px 20px;
+  text-align: center;
+  color: var(--text-secondary);
 }
