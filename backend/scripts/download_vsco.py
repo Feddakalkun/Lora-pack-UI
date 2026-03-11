@@ -94,8 +94,9 @@ def _run_gallery_dl(gallery_url: str, base_dir: Path, archive: Path, manual_cook
         str(base_dir),
         "--download-archive",
         str(archive),
-        "--write-metadata",
     ]
+    if os.environ.get("VSCO_WRITE_METADATA", "0").strip() == "1":
+        base_cmd.append("--write-metadata")
 
     cookie_files: List[Path] = []
     preflight_notes: List[str] = []
@@ -191,15 +192,17 @@ def _filter_vsco_image_urls(urls: Iterable[str]) -> List[str]:
     return filtered
 
 
-def _collect_vsco_urls_playwright(gallery_url: str) -> Tuple[List[str], str]:
-    if os.environ.get("VSCO_ENABLE_PLAYWRIGHT", "0").strip() != "1":
-        return [], "Playwright fallback is disabled (set VSCO_ENABLE_PLAYWRIGHT=1 to enable)"
+def _collect_vsco_urls_playwright(gallery_url: str, headless: bool = True) -> Tuple[List[str], str]:
+    mode = os.environ.get("VSCO_ENABLE_PLAYWRIGHT", "auto").strip().lower()
+    if mode in ("0", "false", "off"):
+        return [], "Playwright fallback disabled by VSCO_ENABLE_PLAYWRIGHT"
 
     if os.name == "nt":
         try:
             asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
         except Exception:
             pass
+
     try:
         from playwright.sync_api import sync_playwright
     except Exception:
@@ -208,14 +211,16 @@ def _collect_vsco_urls_playwright(gallery_url: str) -> Tuple[List[str], str]:
     urls: Set[str] = set()
 
     try:
+        VSCO_PLAYWRIGHT_PROFILE_DIR.mkdir(parents=True, exist_ok=True)
         with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
-            context = browser.new_context(
+            context = p.chromium.launch_persistent_context(
+                user_data_dir=str(VSCO_PLAYWRIGHT_PROFILE_DIR),
+                headless=headless,
                 user_agent=USER_AGENT,
                 locale="en-US",
                 viewport={"width": 1280, "height": 1800},
             )
-            page = context.new_page()
+            page = context.pages[0] if context.pages else context.new_page()
 
             def add_url(candidate: str):
                 if candidate and candidate.startswith("http"):
@@ -235,7 +240,14 @@ def _collect_vsco_urls_playwright(gallery_url: str) -> Tuple[List[str], str]:
             page.on("request", lambda req: add_url(req.url))
             page.on("response", on_response)
 
-            page.goto(gallery_url, wait_until="domcontentloaded", timeout=45000)
+            goto_resp = page.goto(gallery_url, wait_until="domcontentloaded", timeout=45000)
+            try:
+                status = int(goto_resp.status) if goto_resp else 0
+            except Exception:
+                status = 0
+            if status >= 400:
+                context.close()
+                return [], f"Playwright HTTP {status} while opening gallery"
 
             last_height = 0
             stable_rounds = 0
@@ -296,6 +308,86 @@ def _collect_vsco_urls_html(gallery_url: str) -> List[str]:
     return _filter_vsco_image_urls(_extract_image_urls_from_text(html))
 
 
+
+def _download_urls_with_playwright(urls: Iterable[str], out_dir: Path) -> Tuple[int, int, str]:
+    mode = os.environ.get("VSCO_ENABLE_PLAYWRIGHT", "auto").strip().lower()
+    if mode in ("0", "false", "off"):
+        return 0, 0, "Playwright fallback disabled by VSCO_ENABLE_PLAYWRIGHT"
+
+    if os.name == "nt":
+        try:
+            asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+        except Exception:
+            pass
+
+    try:
+        from playwright.sync_api import sync_playwright
+    except Exception:
+        return 0, 0, "Playwright package is not installed"
+
+    normalized_urls = [u for u in _filter_vsco_image_urls(urls)]
+    if not normalized_urls:
+        return 0, 0, "No VSCO image URLs to download"
+
+    downloaded = 0
+    skipped = 0
+    last_error = ""
+
+    try:
+        VSCO_PLAYWRIGHT_PROFILE_DIR.mkdir(parents=True, exist_ok=True)
+        with sync_playwright() as p:
+            context = p.chromium.launch_persistent_context(
+                user_data_dir=str(VSCO_PLAYWRIGHT_PROFILE_DIR),
+                headless=True,
+                user_agent=USER_AGENT,
+                locale="en-US",
+                viewport={"width": 1280, "height": 1000},
+            )
+            reqctx = context.request
+
+            for idx, image_url in enumerate(normalized_urls, start=1):
+                name = _unique_name_from_url(image_url, idx)
+                target = out_dir / name
+                if target.exists():
+                    skipped += 1
+                    continue
+
+                try:
+                    resp = reqctx.get(
+                        image_url,
+                        timeout=35000,
+                        headers={
+                            "User-Agent": USER_AGENT,
+                            "Accept": "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
+                            "Accept-Language": "en-US,en;q=0.9",
+                            "Referer": "https://vsco.co/",
+                            "Origin": "https://vsco.co",
+                        },
+                    )
+                    if not resp.ok:
+                        last_error = f"HTTP {resp.status} for {image_url}"
+                        continue
+                    payload = resp.body()
+                    if not payload:
+                        last_error = f"Empty response for {image_url}"
+                        continue
+
+                    ctype = str(resp.headers.get("content-type", "")).split(";")[0].strip().lower()
+                    if ctype and ctype.startswith("image/"):
+                        guessed_ext = mimetypes.guess_extension(ctype) or ""
+                        if guessed_ext and target.suffix.lower() not in (".jpg", ".jpeg", ".png", ".webp", ".avif"):
+                            target = target.with_suffix(guessed_ext)
+
+                    target.write_bytes(payload)
+                    downloaded += 1
+                except Exception as exc:
+                    last_error = str(exc)
+
+            context.close()
+    except Exception as exc:
+        return downloaded, skipped, f"Playwright download runtime failed: {exc}"
+
+    return downloaded, skipped, last_error
 def _unique_name_from_url(url: str, idx: int) -> str:
     parsed = urlparse(url)
     parts = [p for p in parsed.path.split("/") if p]
@@ -375,14 +467,24 @@ def download_vsco(url: str, character: str = "Unsorted", cookies_file: str | Non
                 "message": msg,
             }
 
-        source = "Playwright"
-        image_urls, play_err = _collect_vsco_urls_playwright(gallery_url)
+        source = "Playwright headless"
+        image_urls, play_err = _collect_vsco_urls_playwright(gallery_url, headless=True)
+        if not image_urls:
+            source = "Playwright headed"
+            image_urls, headful_err = _collect_vsco_urls_playwright(gallery_url, headless=False)
+            if not image_urls and headful_err:
+                play_err = f"{play_err}; {headful_err}" if play_err else headful_err
         if not image_urls:
             source = "HTML fallback"
             image_urls = _collect_vsco_urls_html(gallery_url)
 
         if image_urls:
-            downloaded, skipped, dl_error = _download_urls(image_urls, base_dir)
+            downloaded, skipped, dl_error = _download_urls_with_playwright(image_urls, base_dir)
+            if downloaded == 0 and skipped == 0:
+                plain_downloaded, plain_skipped, plain_error = _download_urls(image_urls, base_dir)
+                downloaded += plain_downloaded
+                skipped += plain_skipped
+                dl_error = plain_error or dl_error
             current_files = _count_images(base_dir)
             if downloaded > 0 or current_files > 0:
                 msg = (
@@ -411,3 +513,6 @@ def download_vsco(url: str, character: str = "Unsorted", cookies_file: str | Non
             "message": error_msg,
             "username": username,
         }
+
+
+
