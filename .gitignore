@@ -1,0 +1,26 @@
+# Python environments and caches
+.venv/
+**/__pycache__/
+*.pyc
+
+# Backend runtime data
+backend/downloads/
+backend/.auth/
+backend/.config/cookies.json
+backend/.config/*.local.json
+backend/*.log
+
+# Frontend artifacts
+frontend/node_modules/
+frontend/dist/
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Local notes
+codex_handover.md
+
+push.bat
