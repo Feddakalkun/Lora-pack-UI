@@ -6,7 +6,7 @@ LoRA Pack UI is a local-first tool for collecting and preparing media for model 
 
 1. Clone this repository.
 2. Run `install.bat` once (creates `.venv`, installs backend + frontend dependencies, installs Playwright Chromium).
-3. Run `run_dev.cmd`.
+3. Run `run.cmd`.
 4. Open [http://localhost:5173](http://localhost:5173).
 
 ## Update Workflow

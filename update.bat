@@ -64,5 +64,5 @@ if errorlevel 1 (
 
 echo.
 echo Update complete.
-echo You can now run run_dev.cmd
+echo You can now run run.cmd
 pause

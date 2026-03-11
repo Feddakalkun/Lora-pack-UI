@@ -68,5 +68,5 @@ if errorlevel 1 (
 
 echo.
 echo Install complete.
-echo Next step: run run_dev.cmd
+echo Next step: run run.cmd
 pause
