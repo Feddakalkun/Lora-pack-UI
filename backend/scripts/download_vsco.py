@@ -92,8 +92,7 @@ def download_vsco(url: str, character: str = "Unsorted", cookies_file: str | Non
             "gallery-dl",
             "--directory", str(base_dir),
             "--download-archive", str(archive),
-            "--write-metadata",
-            "--quiet"
+            "--write-metadata"
         ]
 
         # Try with different cookie sources
@@ -115,11 +114,21 @@ def download_vsco(url: str, character: str = "Unsorted", cookies_file: str | Non
             full_cmd = cmd + cookie_args + [gallery_url]
             
             try:
-                # Use a larger timeout for initial scrape
-                subprocess.run(full_cmd, capture_output=True, text=True, timeout=180)
+                proc = subprocess.Popen(full_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding='utf-8', errors='ignore')
+                for line in iter(proc.stdout.readline, ""):
+                    if line:
+                        line = line.strip()
+                        if line:
+                             _log_remote(line, job_id, api_base)
+                             # Optional: Try to guess progress based on output
+                             if "Downloaded" in line or line.startswith("#"):
+                                 _update_remote("running", "Downloading assets...", 50, job_id, api_base)
+                
+                proc.wait()
+                
                 count = _count_images(base_dir)
-                if count > 0:
-                    _log_remote(f"Probe successful! {count} assets indexed.", job_id, api_base)
+                if proc.returncode == 0 or count > 0:
+                    _log_remote(f"Probe successful! {count} total assets indexed in folder.", job_id, api_base)
                     success = True
                     break
             except Exception as e:

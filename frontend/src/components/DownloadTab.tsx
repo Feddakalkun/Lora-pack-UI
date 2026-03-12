@@ -147,9 +147,18 @@ export function DownloadTab({
                             </div>
 
                             {downloadLogs.length > 0 && (
-                                <div className="download-log-box" style={{ marginTop: '16px', maxHeight: '150px' }}>
-                                    {downloadLogs.slice(-6).map((line: string, idx: number) => (
-                                        <div key={`${idx}-${line}`} className="download-log-line">{line}</div>
+                                <div 
+                                    className="download-log-box" 
+                                    style={{ 
+                                        marginTop: '16px', 
+                                        height: '250px', 
+                                        overflowY: 'auto',
+                                        display: 'flex',
+                                        flexDirection: 'column'
+                                    }}
+                                >
+                                    {downloadLogs.map((line: string, idx: number) => (
+                                        <div key={`${idx}`} className="download-log-line">{line}</div>
                                     ))}
                                 </div>
                             )}
