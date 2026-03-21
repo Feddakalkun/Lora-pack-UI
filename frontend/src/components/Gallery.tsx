@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Maximize2, Check, X, Scissors, Trash2 } from 'lucide-react'
+import { Maximize2, Check, X, Scissors, Trash2, FileText } from 'lucide-react'
 import axios from 'axios'
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim() || 'http://localhost:8000'
@@ -21,6 +21,9 @@ export function Gallery({ character }: GalleryProps) {
     const [loading, setLoading] = useState(true)
     const [selectedImage, setSelectedImage] = useState<ImageItem | null>(null)
     const [viewFolder, setViewFolder] = useState('root')
+    const [captionJobId, setCaptionJobId] = useState<string | null>(null)
+    const [captioning, setCaptioning] = useState(false)
+    const [captionStatus, setCaptionStatus] = useState('')
 
     const fetchImages = async () => {
         if (!character) return
@@ -38,6 +41,75 @@ export function Gallery({ character }: GalleryProps) {
     useEffect(() => {
         fetchImages()
     }, [character])
+
+    useEffect(() => {
+        if (!captionJobId) return
+
+        const timer = window.setInterval(async () => {
+            try {
+                const response = await axios.get(`${API_BASE}/api/download/status/${captionJobId}`)
+                if (String(response.data?.status || '').toLowerCase() !== 'success') {
+                    setCaptioning(false)
+                    setCaptionJobId(null)
+                    setCaptionStatus('Caption status request failed.')
+                    return
+                }
+                const job = response.data?.job || {}
+                const jobStatus = String(job.status || '').toLowerCase()
+                const msg = String(job.message || '').trim()
+                setCaptionStatus(msg || 'Captioning...')
+
+                if (jobStatus === 'success') {
+                    setCaptioning(false)
+                    setCaptionJobId(null)
+                    setCaptionStatus(`Done: ${msg}`)
+                    fetchImages()
+                    window.clearInterval(timer)
+                    return
+                }
+                if (jobStatus === 'error') {
+                    setCaptioning(false)
+                    setCaptionJobId(null)
+                    setCaptionStatus(`Error: ${msg || 'Captioning failed.'}`)
+                    window.clearInterval(timer)
+                }
+            } catch (error) {
+                console.error(error)
+                setCaptioning(false)
+                setCaptionJobId(null)
+                setCaptionStatus('Error polling caption status.')
+                window.clearInterval(timer)
+            }
+        }, 1500)
+
+        return () => window.clearInterval(timer)
+    }, [captionJobId])
+
+    const handleAutoCaption = async () => {
+        if (!character) return
+        setCaptioning(true)
+        setCaptionStatus('Starting auto-caption...')
+        try {
+            const response = await axios.post(`${API_BASE}/api/caption/start`, {
+                character,
+                overwrite: false,
+                model: 'llava:7b',
+                ollama_base: 'http://127.0.0.1:11434'
+            })
+            const ok = String(response.data?.status || '').toLowerCase() === 'success'
+            if (!ok || !response.data?.job_id) {
+                setCaptioning(false)
+                setCaptionStatus(`Error: ${response.data?.message || 'Could not start caption job.'}`)
+                return
+            }
+            setCaptionJobId(String(response.data.job_id))
+            setCaptionStatus('Caption job queued...')
+        } catch (error) {
+            console.error(error)
+            setCaptioning(false)
+            setCaptionStatus('Error starting caption job. Is backend running?')
+        }
+    }
 
     const handleMoveBatch = async (files: string[], toFolder: string) => {
         if (!files.length) return
@@ -97,6 +169,14 @@ export function Gallery({ character }: GalleryProps) {
                 </div>
                 <div className="gallery-actions">
                     <button
+                        className="icon-btn"
+                        title="Auto-caption images"
+                        onClick={handleAutoCaption}
+                        disabled={captioning}
+                    >
+                        <FileText size={18} />
+                    </button>
+                    <button
                         className="icon-btn action-keep"
                         title="Move filtered to Keep"
                         onClick={() => handleMoveBatch(filteredImages.map(i => i.name), 'keep')}
@@ -112,6 +192,12 @@ export function Gallery({ character }: GalleryProps) {
                     </button>
                 </div>
             </div>
+
+            {captionStatus && (
+                <div className="glass-panel" style={{ marginTop: '12px', marginBottom: '10px' }}>
+                    <p style={{ margin: 0, color: '#c4b5fd' }}>{captionStatus}</p>
+                </div>
+            )}
 
             {loading ? (
                 <div className="gallery-loading">

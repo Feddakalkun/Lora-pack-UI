@@ -30,3 +30,22 @@ This will:
 - Runtime/user data is ignored from git (`backend/downloads`, auth/session data, local cookie config, `.venv`, caches).
 - VSCO metadata JSON sidecar files are disabled by default.
 - `run.cmd` accepts optional ports: `run.cmd <backend_port> <frontend_port>`.
+
+## Auto Caption (Screenshots / Frames)
+
+You can auto-caption images from the Gallery tab (new text icon button).
+
+Requirements:
+
+1. Install Ollama: https://ollama.com/
+2. Pull a vision model once:
+   - `ollama pull llava:7b`
+3. Keep Ollama running locally (default: `http://127.0.0.1:11434`)
+
+Then in the app:
+
+1. Select your character.
+2. Go to **Curation & Gallery**.
+3. Click the **Auto Caption** button.
+
+The backend writes one `.txt` caption next to each image file.

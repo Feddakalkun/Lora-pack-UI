@@ -11,6 +11,7 @@ import shutil
 import time
 import subprocess
 import sys
+import threading
 
 # Services
 from services.job_manager import job_manager
@@ -69,6 +70,13 @@ class FrameExtractionRequest(BaseModel):
     interval: float = 1.0
     max_frames: int | None = None
     output_subfolder: str = "frames"
+
+
+class CaptionRequest(BaseModel):
+    character: str
+    overwrite: bool = False
+    model: str = "llava:7b"
+    ollama_base: str = "http://127.0.0.1:11434"
 
 # --- Endpoints ---
 
@@ -282,9 +290,74 @@ def extract_video_frames(req: FrameExtractionRequest):
         output_subfolder=req.output_subfolder,
     )
 
+
+def _run_caption_subprocess(job_id: str, req: CaptionRequest):
+    backend_root = Path(__file__).resolve().parent
+    script_path = backend_root / "scripts" / "auto_caption.py"
+    api_base = os.environ.get("API_BASE_URL")
+    if not api_base:
+        port = os.environ.get("BACKEND_PORT", "8000")
+        api_base = f"http://127.0.0.1:{port}"
+    cmd = [
+        sys.executable,
+        str(script_path),
+        "--character",
+        req.character,
+        "--job-id",
+        job_id,
+        "--api-base",
+        api_base,
+        "--model",
+        req.model,
+        "--ollama-base",
+        req.ollama_base,
+    ]
+    if req.overwrite:
+        cmd.append("--overwrite")
+
+    try:
+        process = subprocess.Popen(
+            cmd,
+            cwd=str(backend_root),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
+        )
+        stdout, stderr = process.communicate()
+        if process.returncode != 0:
+            job = job_manager.get_job(job_id)
+            if job and job.get("status") not in ("success", "error"):
+                msg = f"Auto-caption process crashed (code {process.returncode})."
+                if stderr:
+                    msg += f" {stderr[:250]}"
+                job_manager.update_job(job_id, status="error", message=msg, progress=100)
+        elif stdout:
+            job_manager.log_message(job_id, "Auto-caption process finished.")
+    except Exception as exc:
+        job_manager.update_job(job_id, status="error", message=f"Caption launch error: {exc}", progress=100)
+
+
+@app.post("/api/caption/start")
+def caption_start(req: CaptionRequest):
+    job_id = job_manager.create_job(
+        url=f"caption://{req.character}",
+        character=req.character,
+        payload={"task": "caption", "overwrite": req.overwrite, "model": req.model},
+    )
+    job_manager.update_job(job_id, status="running", progress=1, message="Queued caption job...")
+    thread = threading.Thread(target=_run_caption_subprocess, args=(job_id, req), daemon=True)
+    thread.start()
+    return {"status": "success", "job_id": job_id, "message": "Auto-caption started."}
+
 # Static Mounting
 app.mount("/media", StaticFiles(directory=str(DOWNLOADS_ROOT)), name="media")
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    host = os.environ.get("BACKEND_HOST", "127.0.0.1")
+    try:
+        port = int(os.environ.get("BACKEND_PORT", "8000"))
+    except ValueError:
+        port = 8000
+    uvicorn.run("main:app", host=host, port=port, reload=True)

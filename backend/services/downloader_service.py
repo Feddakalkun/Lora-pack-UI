@@ -40,6 +40,10 @@ class DownloaderService:
         
         backend_root = Path(__file__).resolve().parent.parent
         script_path = backend_root / "scripts" / script_name
+        api_base = os.environ.get("API_BASE_URL")
+        if not api_base:
+            api_port = os.environ.get("BACKEND_PORT", "8000")
+            api_base = f"http://127.0.0.1:{api_port}"
         
         # Build command
         # Use sys.executable to ensure we use the same venv
@@ -49,7 +53,7 @@ class DownloaderService:
             url,
             "--character", character,
             "--job-id", job_id,
-            "--api-base", "http://localhost:8000"
+            "--api-base", api_base
         ]
         
         if cookies:
